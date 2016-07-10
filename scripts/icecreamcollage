@@ -1,0 +1,13 @@
+#!/bin/sh
+
+mkdir -p $1
+
+for i in {1..140}
+do
+  echo $i
+  makeicecream render $i > $1/$i.svg
+  rsvg-convert -o $1/$(printf %04g $i).png $1/$i.svg
+done
+
+gm montage $(ls $1/*.png | sort -n) -mode concatenate -tile 7x20 -geometry +0+0 -background '#f2f2f2' montage.png
+gm convert -gravity center -border 80x80 -bordercolor '#f2f2f2' montage.png final_montage.png

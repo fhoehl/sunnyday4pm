@@ -1,0 +1,12 @@
+botmachine:
+  build: .
+  volumes:
+    - "./data/bot:/data"
+  links:
+    - db
+  env_file: .env
+db:
+  image: redis:alpine
+  volumes:
+    - "./data/redis:/data"
+  command: ["redis-server", "--appendonly yes"]

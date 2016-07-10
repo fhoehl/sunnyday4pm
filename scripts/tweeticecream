@@ -1,0 +1,107 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+'''
+Upload image and tweet new icecream
+'''
+
+from __future__ import print_function
+
+import argparse
+from os import environ
+from base64 import b64encode
+from sys import exit, stderr
+
+from redis import StrictRedis
+from twython import Twython
+
+try:
+    REDIS_HOST = environ['REDIS_HOST']
+    REDIS_PORT = environ['REDIS_PORT']
+    CONSUMER_KEY = environ['TWITTER_CONSUMER_KEY']
+    CONSUMER_SECRET = environ['TWITTER_CONSUMER_SECRET']
+    ACCESS_TOKEN = environ['TWITTER_ACCESS_TOKEN']
+    ACCESS_TOKEN_SECRET = environ['TWITTER_ACCESS_TOKEN_SECRET']
+except KeyError:
+    print('Please set the environment variables for connecting to Twitter:',
+          'REDIS_HOST', 'REDIS_PORT',
+          'TWITTER_CONSUMER_KEY', 'TWITTER_CONSUMER_SECRET',
+          'TWITTER_ACCESS_TOKEN', 'TWITTER_ACCESS_TOKEN_SECRET',
+          file=stderr)
+    exit(1)
+
+twitter_client = Twython(app_key=CONSUMER_KEY,
+                         app_secret=CONSUMER_SECRET,
+                         oauth_token=ACCESS_TOKEN,
+                         oauth_token_secret=ACCESS_TOKEN_SECRET)
+
+redis_client = StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
+
+quotes = ['Have a lovely day! 💐',
+          'It’s ice cream time! 🍦',
+          'Oh I do like to be beside the seaside! ⛵️',
+          'What a beautiful day! 😎',
+          'It’s time for a walk in the park! 🌳',
+          'Nice cream! 😄',
+          'Sunny! ☀️',
+          'Melting by the warm breeze! 🌴',
+          'Anyone for tennis? 🎾',
+          'Here comes the ice cream van! 🎶']
+
+
+def upload_image(image_path):
+    '''
+    Upload image at image_path
+    '''
+
+    with open(image_path, 'rb') as image_file:
+        response = twitter_client.upload_media(media=image_file)
+        return response['media_id_string']
+    return None
+
+
+def update_profile_picture(image_path):
+    '''
+    Update profile picture with new ice cream
+    '''
+
+    with open(image_path, 'rb') as image_file:
+        image_data = b64encode(image_file.read())
+        twitter_client.update_profile_image(image=image_data, skip_status=True)
+
+
+def post_status(status, media_id):
+    '''
+    Post status and link it to the given media_id
+    '''
+
+    response = twitter_client.update_status(status=status,
+                                            media_ids=[media_id])
+    return response['id_str']
+
+
+def tweet(icecream_id, image_path):
+    '''
+    Tweet the new icecream
+    '''
+
+    update_profile_picture(image_path)
+
+    quote_id = icecream_id % len(quotes)
+    status = '%s №%i' % (quotes[quote_id], icecream_id)
+    media_id = upload_image(image_path)
+    status_id = post_status(status, media_id)
+    redis_client.hset('tweets', 'icecream_%i' % icecream_id, status_id)
+
+
+def main():
+    '''main'''
+    parser = argparse.ArgumentParser(description="Tweet an ice cream")
+    parser.add_argument('icecream_id', help='Icecream db ID')
+    parser.add_argument('image_path', help='Image file path')
+    args = parser.parse_args()
+    tweet(int(args.icecream_id), args.image_path)
+
+
+if __name__ == '__main__':
+    main()

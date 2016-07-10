@@ -1,0 +1,81 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+'''
+Sync icecream db with Twitter likes
+'''
+
+from __future__ import print_function
+
+from os import environ
+from sys import exit, stderr
+from json import loads, dumps
+from itertools import izip, ifilter
+
+from redis import StrictRedis
+from twython import Twython
+
+try:
+    REDIS_HOST = environ['REDIS_HOST']
+    REDIS_PORT = environ['REDIS_PORT']
+    CONSUMER_KEY = environ['TWITTER_CONSUMER_KEY']
+    CONSUMER_SECRET = environ['TWITTER_CONSUMER_SECRET']
+    ACCESS_TOKEN = environ['TWITTER_ACCESS_TOKEN']
+    ACCESS_TOKEN_SECRET = environ['TWITTER_ACCESS_TOKEN_SECRET']
+except KeyError:
+    print('Please set the environment variables for connecting to Twitter:',
+          'REDIS_HOST', 'REDIS_PORT',
+          'TWITTER_CONSUMER_KEY', 'TWITTER_CONSUMER_SECRET',
+          'TWITTER_ACCESS_TOKEN', 'TWITTER_ACCESS_TOKEN_SECRET',
+          file=stderr)
+    exit(1)
+
+twitter_client = Twython(CONSUMER_KEY,
+                         CONSUMER_SECRET,
+                         ACCESS_TOKEN,
+                         ACCESS_TOKEN_SECRET)
+
+redis_client = StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
+
+
+def get_statuses_ids():
+    '''
+    Return an entire list of tuples containing the icecream id and the
+    related Twitter status id.
+    '''
+
+    icecream_ids = redis_client.keys('icecream_*')
+
+    return ifilter(lambda x: None not in x,
+                   [(icecream_id, redis_client.hget("tweets", icecream_id))
+                    for icecream_id in icecream_ids])
+
+
+def fetch_statuses():
+    '''
+    Return a generator that yield a tuple containing the icecream id and
+    the related Twitter status.
+    '''
+
+    statuses_map = {status[1]: status[0]
+                    for status in get_statuses_ids()}
+
+    # We are limited to a 100 ids per API call
+
+    split_by = min(len(statuses_map), 100)
+
+    for status_ids in izip(*[iter(statuses_map)] * split_by):
+        statuses = twitter_client.lookup_status(id=','.join(status_ids),
+                                                trim_user=True)
+        for status in statuses:
+            yield (statuses_map[status['id_str']], status)
+
+
+def main():
+    '''main'''
+    for icecream_id, status in fetch_statuses():
+        redis_client.zadd('scores', status['favorite_count'], icecream_id)
+
+
+if __name__ == '__main__':
+    main()

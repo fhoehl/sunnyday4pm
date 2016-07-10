@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+'''
+Print a dot file for generating a graph of all the icecreams and their
+relationships.
+'''
+
+from __future__ import print_function
+
+import json
+from sys import exit, stderr
+from os import environ
+
+import redis
+from graphviz import Digraph
+
+try:
+    REDIS_HOST = environ['REDIS_HOST']
+    REDIS_PORT = environ['REDIS_PORT']
+except KeyError:
+    print('Please set the environment variables:',
+          'REDIS_HOST', 'REDIS_PORT',
+          file=stderr)
+    exit(1)
+
+redis_client = StrictRedis(host=REDIS_HOST, port=REDIS_PORT)
+
+dot = Digraph(comment='Icecreams')
+
+keys = redis_client.keys('icecream_[0-9]*')
+icecreams = [json.loads(redis_client.get(key)) for key in keys]
+
+for icecream in icecreams:
+    dot.node(str(icecream['GenId']))
+
+for icecream in icecreams:
+    dot.edge(str(icecream['GenId']), str(icecream['Parent1Id']))
+    dot.edge(str(icecream['GenId']), str(icecream['Parent2Id']))
+
+print(dot.source)
