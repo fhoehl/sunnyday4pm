@@ -135,7 +135,11 @@ func Key(id int) string {
 
 // Apply a like to the given ice cream
 func (icecream Icecream) Like() {
-	icecream.Save()
+	_, err := client.Cmd("ZINCRBY", "scores", 1, icecream.Key()).Int()
+
+	if err != nil {
+		log.Println("Error incrementing score for", icecream.Key())
+	}
 }
 
 func MakeRandomGenes(length int) []float32 {
@@ -192,7 +196,7 @@ func (dna *Dna) Mutate(mutationRate float32) {
 }
 
 func SelectParents() []Icecream {
-	icecreams, err := client.Cmd("ZRANGEBYSCORE", "score", 1, "+inf").List()
+	icecreams, err := client.Cmd("ZRANGEBYSCORE", "scores", 1, "+inf").List()
 	selectedIcecreams := make([]Icecream, 2)
 
 	// Is there a least 2 parent?

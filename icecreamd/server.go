@@ -57,7 +57,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 		json.Unmarshal(icecreamJSON, &_icecream)
 
-		fitnessScore, _ := client.Cmd("ZRANK", "score", _icecream.Key()).Float64()
+		fitnessScore, _ := client.Cmd("ZSCORE", "scores", _icecream.Key()).Float64()
 
 		svgs[i] = freezer.IcecreamSVG{
 			_icecream.GenId,
