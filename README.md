@@ -5,6 +5,11 @@
 > :icecream:
 > [Sunny day, 4 PM](https://twitter.com/sunnyday4pm)
 
+<img src="images/1.jpg" width="50%" />
+<img src="images/2.jpg" width="50%" />
+<img src="images/3.jpg" width="50%" />
+<img src="images/4.jpg" width="50%" />
+
 ## About
 
 I’m a three-minute-a-day artist. Every day I will go on Twitter and get the most
